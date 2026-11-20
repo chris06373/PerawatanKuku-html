@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NailCare POS & Member Management</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js untuk Reaktivitas & State Management -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased" x-data="nailPosApp()">
+
+    <!-- CONTAINER UTAMA (1 HALAMAN) -->
+    <div class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+        
+        <!-- HEADER -->
+        <header class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <span class="bg-rose-50 text-rose-600 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Nail Art & Care</span>
+                <h1 class="text-2xl font-extrabold text-slate-900 mt-1">CJ Tech Studio Management</h1>
+                <p class="text-sm text-slate-500">Kasir Kasual, Manajemen Member, Tukar Poin Reward, & Layanan Perawatan.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button @click="activeTab = 'pos'" :class="activeTab === 'pos' ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-4 py-2 rounded-xl text-sm font-semibold transition">
+                    Kasir POS
+                </button>
+                <button @click="activeTab = 'members'" :class="activeTab === 'members' ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-4 py-2 rounded-xl text-sm font-semibold transition">
+                    Member & Poin (<span x-text="members.length"></span>)
+                </button>
+                <button @click="activeTab = 'services'" :class="activeTab === 'services' ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" class="px-4 py-2 rounded-xl text-sm font-semibold transition">
+                    Layanan (<span x-text="services.length"></span>)
+                </button>
+            </div>
+        </header>
+
+        <!-- =================================================================== -->
+        <!-- TAB 1: KASIR SEMI POS & TRANSAKSI -->
+        <!-- =================================================================== -->
+        <div x-show="activeTab === 'pos'" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Kolom Kiri: Pilih Layanan / Treatment Kuku -->
+            <div class="lg:col-span-7 space-y-4">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-slate-900 text-base">Pilih Layanan Perawatan Kuku</h3>
+                        <input type="text" x-model="searchService" placeholder="Cari perawatan..." class="px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-rose-500 w-48">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[480px] overflow-y-auto pr-1">
+                        <template x-for="item in filteredServices" :key="item.id">
+                            <div @click="addToCart(item)" class="bg-slate-50 hover:bg-rose-50/40 border border-slate-200/80 hover:border-rose-300 p-4 rounded-xl cursor-pointer transition flex flex-col justify-between space-y-3">
+                                <div>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-600 uppercase" x-text="item.category"></span>
+                                    <h4 class="font-bold text-slate-900 text-sm mt-1.5" x-text="item.name"></h4>
+                                    <p class="text-xs text-slate-500 mt-0.5" x-text="item.duration"></p>
+                                </div>
+                                <div class="flex justify-between items-center pt-2 border-t border-slate-200/60">
+                                    <span class="font-extrabold text-sm text-rose-600" x-text="formatRupiah(item.price)"></span>
+                                    <span class="text-xs bg-white border border-slate-200 px-2.5 py-1 rounded-lg font-semibold text-slate-600">+ Tambah</span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kolom Kanan: Keranjang, Pilihan Member, & Pembayaran -->
+            <div class="lg:col-span-5 space-y-4">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                    <h3 class="font-bold text-slate-900 text-base border-b border-slate-100 pb-3">Ringkasan Transaksi Kasir</h3>
+
+                    <!-- Pilihan Member -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Pilih Member (Opsional untuk Poin)</label>
+                        <select x-model="selectedMemberId" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-rose-500">
+                            <option value="">-- Tamu Umum (Tanpa Member) --</option>
+                            <template x-for="m in members" :key="m.id">
+                                <option :value="m.id" x-text="m.name + ' (' + m.phone + ') - Poin: ' + m.points"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <!-- List Keranjang -->
+                    <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        <template x-if="cart.length === 0">
+                            <p class="text-xs text-slate-400 italic text-center py-6 border border-dashed border-slate-200 rounded-xl">Keranjang perawatan masih kosong.</p>
+                        </template>
+                        <template x-for="(cartItem, index) in cart" :key="index">
+                            <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                                <div>
+                                    <p class="font-bold text-slate-800" x-text="cartItem.name"></p>
+                                    <p class="text-slate-500" x-text="formatRupiah(cartItem.price)"></p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-slate-700" x-text="'x' + cartItem.qty"></span>
+                                    <button @click="removeFromCart(index)" class="text-rose-500 font-bold px-1.5 py-0.5 hover:bg-rose-50 rounded">✕</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Opsi Penukaran Poin (Reward Redime) -->
+                    <div x-show="selectedMember" class="bg-amber-50 border border-amber-200 p-3.5 rounded-xl space-y-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-bold text-amber-800">Poin Member Tersedia:</span>
+                            <span class="font-extrabold text-amber-900" x-text="(selectedMember ? selectedMember.points : 0) + ' Poin'"></span>
+                        </div>
+                        <label class="flex items-center gap-2 text-xs text-amber-900 cursor-pointer">
+                            <input type="checkbox" x-model="useRewardRedeem" class="rounded text-amber-600 focus:ring-amber-500">
+                            Tukar 50 Poin untuk Diskon Perawatan / Free Nail Vitamin!
+                        </label>
+                    </div>
+
+                    <!-- Kalkulasi Total -->
+                    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100 space-y-1.5 text-xs">
+                        <div class="flex justify-between text-slate-600">
+                            <span>Subtotal</span>
+                            <span x-text="formatRupiah(subTotal)"></span>
+                        </div>
+                        <div x-show="useRewardRedeem" class="flex justify-between text-emerald-600 font-semibold">
+                            <span>Diskon Tukar Poin (Redeem)</span>
+                            <span>- Rp 50.000</span>
+                        </div>
+                        <div class="flex justify-between text-slate-900 font-extrabold text-sm pt-2 border-t border-slate-200">
+                            <span>Total Pembayaran</span>
+                            <span class="text-rose-600" x-text="formatRupiah(grandTotal)"></span>
+                        </div>
+                    </div>
+
+                    <button @click="processCheckout()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow-sm">
+                        💳 Selesaikan Pembayaran & Beri Poin
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- TAB 2: MANAJEMEN MEMBER & POIN REWARD -->
+        <!-- =================================================================== -->
+        <div x-show="activeTab === 'members'" class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6" style="display: none;">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h3 class="font-bold text-slate-900 text-lg">Daftar Member & Reward Poin</h3>
+                    <p class="text-xs text-slate-500">Setiap transaksi akan otomatis menambah poin member (10% dari total bayar atau aturan poin tetap).</p>
+                </div>
+                <button @click="openMemberModal()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition">
+                    + Tambah Member Baru
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-400 text-xs uppercase border-b border-slate-100">
+                            <th class="p-3">Nama Member</th>
+                            <th class="p-3">No. Telepon / WhatsApp</th>
+                            <th class="p-3">Level Member</th>
+                            <th class="p-3 font-bold text-amber-600">Poin Reward</th>
+                            <th class="p-3 text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <template x-for="m in members" :key="m.id">
+                            <tr class="hover:bg-slate-50/50">
+                                <td class="p-3 font-bold text-slate-800" x-text="m.name"></td>
+                                <td class="p-3 text-slate-600" x-text="m.phone"></td>
+                                <td class="p-3">
+                                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-600" x-text="m.tier"></span>
+                                </td>
+                                <td class="p-3 font-extrabold text-amber-600" x-text="m.points + ' Poin'"></td>
+                                <td class="p-3 text-center">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <button @click="addManualPoints(m.id)" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-xs font-semibold transition" title="Tambah Poin Manual">+ Poin</button>
+                                        <button @click="deleteMember(m.id)" class="text-slate-400 hover:text-rose-600 p-1">🗑️</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- TAB 3: CRUD LAYANAN PERAWATAN KUKU -->
+        <!-- =================================================================== -->
+        <div x-show="activeTab === 'services'" class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-6" style="display: none;">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h3 class="font-bold text-slate-900 text-lg">Katalog Layanan Perawatan Kuku</h3>
+                    <p class="text-xs text-slate-500">Tambah, ubah, atau hapus jenis treatment (Manicure, Pedicure, Gel Polish, Nail Art, dll).</p>
+                </div>
+                <button @click="openServiceModal()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition">
+                    + Tambah Layanan Baru
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-400 text-xs uppercase border-b border-slate-100">
+                            <th class="p-3">Kategori</th>
+                            <th class="p-3">Nama Layanan</th>
+                            <th class="p-3">Estimasi Durasi</th>
+                            <th class="p-3">Harga (Rp)</th>
+                            <th class="p-3 text-center">Aksi CRUD</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <template x-for="s in services" :key="s.id">
+                            <tr class="hover:bg-slate-50/50">
+                                <td class="p-3">
+                                    <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-50 text-rose-600 uppercase" x-text="s.category"></span>
+                                </td>
+                                <td class="p-3 font-bold text-slate-800" x-text="s.name"></td>
+                                <td class="p-3 text-slate-600" x-text="s.duration"></td>
+                                <td class="p-3 font-extrabold text-slate-900" x-text="formatRupiah(s.price)"></td>
+                                <td class="p-3 text-center">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <button @click="editService(s)" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-rose-600" title="Edit">✏️</button>
+                                        <button @click="deleteService(s.id)" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-rose-600" title="Hapus">🗑️</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- MODAL 1: FORM TAMBAH / EDIT LAYANAN (CRUD SERVICE) -->
+    <!-- =================================================================== -->
+    <div x-show="showServiceModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" style="display: none;">
+        <div @click.away="closeServiceModal()" class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100">
+            <h3 class="text-lg font-bold text-slate-900 mb-4" x-text="isEditService ? 'Edit Layanan Perawatan' : 'Tambah Layanan Baru'"></h3>
+            <form @submit.prevent="saveService()" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Layanan *</label>
+                    <input type="text" x-model="serviceForm.name" required placeholder="Contoh: Deluxe Gel Manicure" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-rose-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Kategori *</label>
+                        <select x-model="serviceForm.category" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-rose-500">
+                            <option value="Manicure">Manicure</option>
+                            <option value="Pedicure">Pedicure</option>
+                            <option value="Nail Art">Nail Art</option>
+                            <option value="Treatment">Treatment</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Harga (Rp) *</label>
+                        <input type="number" x-model.number="serviceForm.price" required min="0" placeholder="120000" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-rose-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Estimasi Durasi *</label>
+                    <input type="text" x-model="serviceForm.duration" required placeholder="Contoh: 45 Menit" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-rose-500">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" @click="closeServiceModal()" class="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-semibold hover:bg-rose-700">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- MODAL 2: FORM TAMBAH MEMBER -->
+    <!-- =================================================================== -->
+    <div x-show="showMemberModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" style="display: none;">
+        <div @click.away="showMemberModal = false" class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100">
+            <h3 class="text-lg font-bold text-slate-900 mb-4">Tambah Member Baru</h3>
+            <form @submit.prevent="saveMember()" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Lengkap *</label>
+                    <input type="text" x-model="memberForm.name" required placeholder="Contoh: Jessica Wijaya" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-rose-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">No. WhatsApp *</label>
+                    <input type="text" x-model="memberForm.phone" required placeholder="08123456789" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-rose-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Level Member</label>
+                    <select x-model="memberForm.tier" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-rose-500">
+                        <option value="Silver">Silver</option>
+                        <option value="Gold">Gold</option>
+                        <option value="VIP Diamond">VIP Diamond</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" @click="showMemberModal = false" class="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-semibold hover:bg-rose-700">Simpan Member</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- LOGIKA JAVASCRIPT (Alpine.js) -->
+    <!-- =================================================================== -->
+    <script>
+        function nailPosApp() {
+            return {
+                activeTab: 'pos',
+                searchService: '',
+                
+                // Data Default Layanan Perawatan Kuku
+                services: [
+                    { id: 1, name: "Classic Manicure & Polish", category: "Manicure", price: 95000, duration: "35 Menit" },
+                    { id: 2, name: "Classic Pedicure & Scrub", category: "Pedicure", price: 110000, duration: "45 Menit" },
+                    { id: 3, name: "Gel Polish Application (Hands)", category: "Manicure", price: 150000, duration: "40 Menit" },
+                    { id: 4, name: "Custom Nail Art (Full Set)", category: "Nail Art", price: 250000, duration: "90 Menit" },
+                    { id: 5, name: "Nail Strengthening Vitamin Spa", category: "Treatment", price: 80000, duration: "25 Menit" },
+                    { id: 6, name: "Acrylic Extension + Gel Color", category: "Nail Art", price: 320000, duration: "120 Menit" }
+                ],
+
+                // Data Default Member
+                members: [
+                    { id: 1, name: "Jessica Wijaya", phone: "08123456789", tier: "Gold", points: 120 },
+                    { id: 2, name: "Amanda Putri", phone: "08198765432", tier: "Silver", points: 45 },
+                    { id: 3, name: "Siti Rahma", phone: "08112233445", tier: "VIP Diamond", points: 230 }
+                ],
+
+                // POS State
+                cart: [],
+                selectedMemberId: '',
+                useRewardRedeem: false,
+
+                // Modal Service CRUD State
+                showServiceModal: false,
+                isEditService: false,
+                serviceForm: { id: null, name: '', category: 'Manicure', price: 0, duration: '' },
+
+                // Modal Member State
+                showMemberModal: false,
+                memberForm: { name: '', phone: '', tier: 'Silver' },
+
+                // Computed / Getters
+                get filteredServices() {
+                    return this.services.filter(s => s.name.toLowerCase().includes(this.searchService.toLowerCase()));
+                },
+                get selectedMember() {
+                    return this.members.find(m => m.id == this.selectedMemberId) || null;
+                },
+                get subTotal() {
+                    return this.cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                },
+                get grandTotal() {
+                    let total = this.subTotal;
+                    if (this.useRewardRedeem) total -= 50000;
+                    return total > 0 ? total : 0;
+                },
+
+                formatRupiah(num) {
+                    return "Rp " + Number(num).toLocaleString("id-ID");
+                },
+
+                // POS Cart Methods
+                addToCart(service) {
+                    const existing = this.cart.find(item => item.id === service.id);
+                    if (existing) {
+                        existing.qty++;
+                    } else {
+                        this.cart.push({ ...service, qty: 1 });
+                    }
+                },
+                removeFromCart(index) {
+                    this.cart.splice(index, 1);
+                },
+
+                // Checkout & Reward Poin Logic
+                processCheckout() {
+                    if (this.cart.length === 0) {
+                        alert("Keranjang perawatan masih kosong!");
+                        return;
+                    }
+
+                    let summaryMsg = `Transaksi Berhasil!\nTotal Bayar: ${this.formatRupiah(this.grandTotal)}`;
+
+                    // Logika Penukaran Poin & Penambahan Poin
+                    if (this.selectedMember) {
+                        let memberObj = this.members.find(m => m.id == this.selectedMemberId);
+                        
+                        if (this.useRewardRedeem) {
+                            if (memberObj.points < 50) {
+                                alert("Poin member tidak cukup untuk ditukar (minimal 50 poin).");
+                                return;
+                            }
+                            memberObj.points -= 50;
+                            summaryMsg += `\n(-50 Poin Ditukar untuk Diskon)`;
+                        }
+
+                        // Tambah poin baru dari transaksi (10% dari subtotal dibagi 10.000, misal)
+                        let earnedPoints = Math.floor(this.subTotal / 20000); 
+                        memberObj.points += earnedPoints;
+                        summaryMsg += `\n(+${earnedPoints} Poin Reward Ditambahkan ke Member ${memberObj.name})`;
+                    }
+
+                    alert(summaryMsg);
+
+                    // Reset POS
+                    this.cart = [];
+                    this.selectedMemberId = '';
+                    this.useRewardRedeem = false;
+                },
+
+                // CRUD Service Methods
+                openServiceModal() {
+                    this.isEditService = false;
+                    this.serviceForm = { id: null, name: '', category: 'Manicure', price: 0, duration: '' };
+                    this.showServiceModal = true;
+                },
+                editService(s) {
+                    this.isEditService = true;
+                    this.serviceForm = { ...s };
+                    this.showServiceModal = true;
+                },
+                closeServiceModal() {
+                    this.showServiceModal = false;
+                },
+                saveService() {
+                    if (this.isEditService) {
+                        let idx = this.services.findIndex(s => s.id === this.serviceForm.id);
+                        if (idx !== -1) this.services[idx] = { ...this.serviceForm };
+                    } else {
+                        this.serviceForm.id = Date.now();
+                        this.services.unshift({ ...this.serviceForm });
+                    }
+                    this.closeServiceModal();
+                },
+                deleteService(id) {
+                    if (confirm("Hapus layanan perawatan ini dari katalog?")) {
+                        this.services = this.services.filter(s => s.id !== id);
+                    }
+                },
+
+                // Member Methods
+                openMemberModal() {
+                    this.memberForm = { name: '', phone: '', tier: 'Silver' };
+                    this.showMemberModal = true;
+                },
+                saveMember() {
+                    const newMember = {
+                        id: Date.now(),
+                        ...this.memberForm,
+                        points: 10 // Bonus pendaftaran member baru
+                    };
+                    this.members.unshift(newMember);
+                    this.showMemberModal = false;
+                    alert("Member baru berhasil didaftarkan dan mendapat bonus 10 poin!");
+                },
+                addManualPoints(memberId) {
+                    let m = this.members.find(x => x.id === memberId);
+                    if (m) {
+                        let add = prompt(`Masukkan jumlah poin yang ingin ditambahkan untuk ${m.name}:`, "20");
+                        if (add && !isNaN(add)) {
+                            m.points += Number(add);
+                            alert(`Berhasil menambah ${add} poin untuk ${m.name}.`);
+                        }
+                    }
+                },
+                deleteMember(id) {
+                    if (confirm("Hapus data member ini?")) {
+                        this.members = this.members.filter(m => m.id !== id);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
